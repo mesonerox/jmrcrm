@@ -10,7 +10,7 @@
 
 This is a purpose-built revenue intelligence system for Range's go-to-market team — not a CRM configuration, but a full-stack AI system designed around Range's actual product surface, ICP, and operational reality. This statement maps directly to three concrete engineering problems: an inbound qualification bottleneck that lets leads go cold, a structurally absent outbound motion with no personalization infrastructure, and a BD operations layer that doesn't yet have AI as a force multiplier.
 
-![BD Intelligence Dashboard](./assets/dashboard.png)
+![BD Intelligence Dashboard](https://github.com/user-attachments/assets/ab342743-28fe-4ccc-b589-888726cf30ca)
 
 ---
 
