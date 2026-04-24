@@ -1,0 +1,28 @@
+{
+  "name": "@range-crm/slack-bot",
+  "version": "0.1.0",
+  "description": "Slack bot for Range CRM — planned next milestone",
+  "private": true,
+  "status": "planned",
+  "milestone": "next",
+  "plannedCommands": {
+    "/crm qualify [text]": "ICP scoring via MCP tool, score card posted in thread",
+    "/crm brief [company]": "Meeting prep brief via MCP tool",
+    "/crm pipeline": "Current pipeline snapshot from Twenty GraphQL",
+    "/crm draft [company]": "Personalized outreach draft via MCP tool",
+    "/crm health [company]": "Account health summary",
+    "/crm who today": "Agent-ranked list of accounts to contact today"
+  },
+  "plannedChannels": {
+    "#crm-inbound": "New InboundLead scored — tier badge, score, rationale, [Assign] button",
+    "#crm-signals": "ICP score > 80 OR health spike — account, signal, recommended action",
+    "#crm-health": "Inactive 14d + health < 60 — last touchpoint, [Draft check-in] button",
+    "#crm-wins": "Deal → Closed Won — AE, company, ARR, product mix",
+    "#crm-digest": "Friday 5PM AI-generated weekly pipeline + risk summary"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.x",
+    "@anthropic-ai/sdk": "^0.37.0",
+    "dotenv": "^16.4.5"
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "name": "02 — Outbound Sequence",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "2a2b3c4d-0001-4000-8000-000000000001",
+      "name": "Weekday 8am Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { personName: 'Santiago Gomez', personTitle: 'CTO', companyName: 'RemitFlow', personEmail: 'sgomez@remitflow.io', companyIndustry: 'Remittances', companyDomain: 'remitflow.io', country: 'Mexico' } },\n  { json: { personName: 'Priya Nair', personTitle: 'Head of Engineering', companyName: 'PayEase', personEmail: 'pnair@payease.sg', companyIndustry: 'Payroll', companyDomain: 'payease.sg', country: 'Singapore' } },\n  { json: { personName: 'Marco Rossi', personTitle: 'VP Product', companyName: 'NeoLira', personEmail: 'mrossi@neolira.it', companyIndustry: 'Neobank', companyDomain: 'neolira.it', country: 'Italy' } },\n  { json: { personName: 'Aisha Diallo', personTitle: 'CEO', companyName: 'AfriPay', personEmail: 'adiallo@afripay.io', companyIndustry: 'Remittances', companyDomain: 'afripay.io', country: 'Senegal' } },\n  { json: { personName: 'Chen Wei', personTitle: 'Head of Payments', companyName: 'StablePay', personEmail: 'cwei@stablepay.hk', companyIndustry: 'Stablecoins', companyDomain: 'stablepay.hk', country: 'Hong Kong' } }\n];"
+      },
+      "id": "2a2b3c4d-0002-4000-8000-000000000002",
+      "name": "Mock Prospects",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "2a2b3c4d-0004-4000-8000-000000000004",
+      "name": "Loop Over Results",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 600, system: 'You are an outbound sales copywriter for Crossmint — enterprise Web3 infrastructure for wallets, stablecoins, and agentic payments. Write concise, personalized first-touch emails under 150 words. Return ONLY valid JSON: {\"subject\": \"...\", \"body\": \"...\"}', messages: [{ role: 'user', content: 'Write a personalized first-touch email for ' + $json.personName + ' (' + $json.personTitle + ') at ' + $json.companyName + ' in the ' + $json.companyIndustry + ' space. Country: ' + $json.country + '. Angle: Crossmint stablecoin infrastructure and wallet APIs can accelerate their product without rebuilding core Web3 infrastructure.' }] }) }}",
+        "options": {}
+      },
+      "id": "2a2b3c4d-0005-4000-8000-000000000005",
+      "name": "Generate Email with Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst text = response.content[0].text;\nconst cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\nconst prospect = $('Loop Over Results').item.json;\nlet subject = 'Crossmint for ' + prospect.companyName;\nlet body = cleaned;\ntry {\n  const parsed = JSON.parse(cleaned);\n  subject = parsed.subject || subject;\n  body = parsed.body || cleaned;\n} catch (e) {}\nreturn [{\n  json: {\n    emailSubject: subject,\n    emailBody: body,\n    companyName: prospect.companyName,\n    companyDomain: prospect.companyDomain,\n    personEmail: prospect.personEmail,\n    personName: prospect.personName\n  }\n}];"
+      },
+      "id": "2a2b3c4d-0006-4000-8000-000000000006",
+      "name": "Parse Claude Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TWENTY_API_URL }}/rest/companies",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.TWENTY_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypairs",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "={{ $json.companyName }}"
+            },
+            {
+              "name": "domainName",
+              "value": "={{ $json.companyDomain }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2a2b3c4d-0007-4000-8000-000000000007",
+      "name": "Create Company in Twenty",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_OUTBOUND }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypairs",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=*New outreach drafted* for *{{ $('Parse Claude Response').item.json.companyName }}*\n*To:* {{ $('Parse Claude Response').item.json.personEmail }}\n*Subject:* {{ $('Parse Claude Response').item.json.emailSubject }}\n\n{{ $('Parse Claude Response').item.json.emailBody }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2a2b3c4d-0008-4000-8000-000000000008",
+      "name": "Notify Slack Outbound",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1680, 300]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Weekday 8am Trigger": {
+      "main": [
+        [
+          {
+            "node": "Mock Prospects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mock Prospects": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Results": {
+      "main": [
+        [
+          {
+            "node": "Generate Email with Claude",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Generate Email with Claude": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude Response": {
+      "main": [
+        [
+          {
+            "node": "Create Company in Twenty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Company in Twenty": {
+      "main": [
+        [
+          {
+            "node": "Notify Slack Outbound",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Slack Outbound": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": ""
+  },
+  "id": "02-outbound-sequence",
+  "tags": []
+}

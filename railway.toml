@@ -1,0 +1,23 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+healthcheckPath = "/healthz"
+healthcheckTimeout = 300
+restartPolicyType = "on-failure"
+restartPolicyMaxRetries = 3
+
+[[services]]
+name = "twenty-server"
+source = "docker-compose"
+dockerComposeService = "twenty-server"
+
+[[services]]
+name = "twenty-worker"
+source = "docker-compose"
+dockerComposeService = "twenty-worker"
+
+[[services]]
+name = "n8n"
+source = "docker-compose"
+dockerComposeService = "n8n"

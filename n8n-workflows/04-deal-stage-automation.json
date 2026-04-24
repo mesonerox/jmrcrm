@@ -1,0 +1,185 @@
+{
+  "name": "04 — Deal Stage Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deal-stage-event",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "4a2b3c4d-0001-4000-8000-000000000001",
+      "name": "Deal Stage Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "4a2b3c4d-dead-beef-cafe-000000000004"
+    },
+    {
+      "parameters": {
+        "mode": "expression",
+        "output": "={{ $json.body.eventName === 'opportunity.created' ? 0 : ($json.body.record && $json.body.record.stage === 'CLOSED_WON' ? 1 : ($json.body.record && $json.body.record.stage === 'CLOSED_LOST' ? 2 : 3)) }}",
+        "options": {}
+      },
+      "id": "4a2b3c4d-0002-4000-8000-000000000002",
+      "name": "Route by Event",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TWENTY_API_URL }}/rest/tasks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.TWENTY_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypairs",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "=Onboarding kickoff — {{ $json.body.record.name }}"
+            },
+            {
+              "name": "status",
+              "value": "TODO"
+            },
+            {
+              "name": "dueAt",
+              "value": "={{ new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4a2b3c4d-0003-4000-8000-000000000003",
+      "name": "Create Onboarding Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.SLACK_WEBHOOK_WINS }}",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypairs",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=:trophy: *CLOSED WON — {{ $json.body.record.name }}*\n*Amount:* ${{ $json.body.record.amount || 'N/A' }}\n*Stage:* CLOSED_WON\n*Updated:* {{ $json.body.record.updatedAt }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4a2b3c4d-0004-4000-8000-000000000004",
+      "name": "Notify Closed Won",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TWENTY_API_URL }}/rest/tasks",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.TWENTY_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypairs",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "=Re-engage {{ $json.body.record.name }} — 90-day follow-up (CLOSED_LOST)"
+            },
+            {
+              "name": "status",
+              "value": "TODO"
+            },
+            {
+              "name": "dueAt",
+              "value": "={{ new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4a2b3c4d-0005-4000-8000-000000000005",
+      "name": "Create 90-Day Follow-up Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 480]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Deal Stage Webhook": {
+      "main": [
+        [
+          {
+            "node": "Route by Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Event": {
+      "main": [
+        [
+          {
+            "node": "Create Onboarding Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Closed Won",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create 90-Day Follow-up Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "d4e5f6a7-b8c9-0123-defa-456789012345",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": ""
+  },
+  "id": "04-deal-stage-automation",
+  "tags": []
+}

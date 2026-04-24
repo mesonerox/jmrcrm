@@ -1,0 +1,196 @@
+{
+  "name": "01 — Inbound Lead Qualification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inbound-lead",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0001-4000-8000-000000000001",
+      "name": "Inbound Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "1a2b3c4d-dead-beef-cafe-000000000001"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asgn-0001",
+              "name": "leadName",
+              "value": "={{ $json.body.name }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-0002",
+              "name": "leadEmail",
+              "value": "={{ $json.body.email }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-0003",
+              "name": "leadCompany",
+              "value": "={{ $json.body.company }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-0004",
+              "name": "leadRole",
+              "value": "={{ $json.body.role }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-0005",
+              "name": "leadUseCase",
+              "value": "={{ $json.body.use_case }}",
+              "type": "string"
+            },
+            {
+              "id": "asgn-0006",
+              "name": "leadCountry",
+              "value": "={{ $json.body.country ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1a2b3c4d-0002-4000-8000-000000000002",
+      "name": "Normalize Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 500, system: 'You are an ICP scoring agent for Crossmint \u2014 enterprise Web3 infrastructure for wallets, stablecoins, and agentic payments. Score leads: Tier A (80-100) fintech/stablecoin/remittance/payroll/neobank/AI agents. Tier B (50-79) gaming/NFT/mid-market. Tier C (20-49) early dev. Disqualified (0-19) no fit. Respond ONLY with JSON: {score,tier,rationale,nextAction,personalization}', messages: [{ role: 'user', content: 'Company: ' + $('Normalize Fields').item.json.leadCompany + '\\nRole: ' + $('Normalize Fields').item.json.leadRole + '\\nUse case: ' + $('Normalize Fields').item.json.leadUseCase + '\\nCountry: ' + $('Normalize Fields').item.json.leadCountry }] }) }}",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0003-4000-8000-000000000003",
+      "name": "Score with Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst text = response.content[0].text;\nconst cleaned = text.replace(/```json\\n?/g, '').replace(/```\\n?/g, '').trim();\nconst parsed = JSON.parse(cleaned);\nreturn [{ json: { score: Number(parsed.score), tier: parsed.tier, rationale: parsed.rationale, nextAction: parsed.nextAction, personalization: parsed.personalization } }];"
+      },
+      "id": "1a2b3c4d-0004-4000-8000-000000000004",
+      "name": "Parse Claude Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TWENTY_API_URL }}/rest/inboundLeads",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.TWENTY_API_KEY }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"name\":\"={{ $('Normalize Fields').first().json.leadName }}\",\"icpScore\":{{ $('Parse Claude Response').first().json.score }},\"icpTier\":\"={{ $('Parse Claude Response').first().json.tier }}\",\"nextAction\":\"={{ $('Parse Claude Response').first().json.nextAction }}\",\"source\":\"WEBSITE\"}",
+        "options": {}
+      },
+      "id": "1a2b3c4d-0005-4000-8000-000000000005",
+      "name": "Create InboundLead in Twenty",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1200, 300]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Inbound Lead Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Fields": {
+      "main": [
+        [
+          {
+            "node": "Score with Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score with Claude": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude Response": {
+      "main": [
+        [
+          {
+            "node": "Create InboundLead in Twenty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": ""
+  },
+  "id": "01-inbound-lead-qualification",
+  "tags": []
+}
